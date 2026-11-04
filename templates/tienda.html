@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>D'VIDA - Tienda</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link id="theme-style" rel="stylesheet" href="{{ url_for('static', filename='assets/css/portal.css') }}">
+</head>
+<body class="app">
+    <nav class="navbar bg-white shadow-sm px-3 mb-4">
+        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('tienda') }}">
+            <img class="logo-icon me-2" style="height:32px" src="{{ url_for('static', filename='assets/images/app-logo.svg') }}" alt="logotipo">
+            <strong>D'VIDA</strong>
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <span>Hola, {{ session.get('nombre') }}</span>
+            {% if session.get('rol') == 'admin' %}
+            <a class="btn app-btn-secondary btn-sm" href="{{ url_for('inicio') }}">Ir al panel</a>
+            {% endif %}
+            <a class="btn app-btn-secondary btn-sm" href="{{ url_for('logout') }}">Cerrar sesión</a>
+        </div>
+    </nav>
+
+    <div class="container-xl pb-5">
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+          {% for cat, msg in mensajes %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+        {% endwith %}
+
+        {% set abierto = mis_pedidos|selectattr('estado', 'equalto', 'Pendiente')|list|first %}
+        {% if abierto %}
+        <div class="alert alert-info">Tienes el pedido <strong>#{{ abierto.id }}</strong> pendiente. Todo lo que pidas se agregará a ese mismo pedido.</div>
+        {% endif %}
+        <h1 class="app-page-title">Nuestros productos</h1>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
+            {% for p in productos %}
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <img src="{{ url_for('static', filename='assets/images/productos/' ~ p.id ~ '.jpg') }}"
+                         class="card-img-top"
+                         alt="{{ p.nombre }}"
+                         style="height: 200px; object-fit: cover;"
+                         data-fallback="{{ url_for('static', filename='assets/images/productos/default.jpg') }}"
+                         onerror="this.onerror=null; this.src=this.dataset.fallback;">
+
+                    <div class="card-body">
+                        <small class="text-muted">{{ p.categoria or 'Producto' }}</small>
+                        <h5 class="card-title mb-1">{{ p.nombre }}</h5>
+                        <p class="card-text fw-bold text-secondary mb-0">S/ {{ "%.2f"|format(p.precio) }}</p>
+                    </div>
+
+                    <div class="card-footer bg-white border-0 pb-3">
+                        <form method="POST" action="{{ url_for('tienda_pedir') }}" class="d-flex gap-2">
+                            <input type="hidden" name="producto_id" value="{{ p.id }}">
+                            <input type="number" name="cantidad" value="1" min="1" max="500"
+                                   class="form-control w-auto" style="max-width:90px" required>
+                            <button type="submit" class="btn app-btn-primary">Pedir</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <p>Aún no hay productos disponibles.</p>
+            {% endfor %}
+        </div>
+
+        <h1 class="app-page-title">Mis pedidos</h1>
+        <div class="app-card app-card-orders-table shadow-sm">
+            <div class="app-card-body">
+                <div class="table-responsive">
+                    <table class="table app-table-hover mb-0 text-left">
+                        <thead><tr>
+                            <th class="cell">Pedido</th><th class="cell">Productos</th><th class="cell">Fecha</th>
+                            <th class="cell">Estado</th><th class="cell">Total</th><th class="cell"></th>
+                        </tr></thead>
+                        <tbody>
+                        {% for p in mis_pedidos %}
+                            <tr>
+                                <td class="cell">#{{ p.id }}</td>
+                                <td class="cell"><ul class="list-unstyled mb-0">{% for it in p.items %}<li>{{ it.cantidad }} x {{ it.producto.nombre }}</li>{% endfor %}</ul></td>
+                                <td class="cell">{{ p.fecha.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                                <td class="cell">
+                                    {% if p.estado == 'Pagado' %}<span class="badge bg-success">Pagado</span>
+                                    {% elif p.estado == 'Pendiente' %}<span class="badge bg-warning">Pendiente</span>
+                                    {% else %}<span class="badge bg-danger">{{ p.estado }}</span>{% endif %}
+                                </td>
+                                <td class="cell">S/ {{ "%.2f"|format(p.total) }}</td>
+                                <td class="cell">
+                                    {% if p.estado == 'Pendiente' %}
+                                    <form method="POST" action="{{ url_for('tienda_cancelar', id=p.id) }}"
+                                          onsubmit="return confirm('¿Cancelar este pedido?');">
+                                        <button class="btn-sm app-btn-secondary" type="submit">Cancelar</button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td class="cell" colspan="6">Todavía no has hecho pedidos.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
